@@ -1,31 +1,62 @@
 import { Meta, StoryObj } from '@storybook/react';
 import DataGrid from './index';
-import type { DataGridProps } from './index';
+import type { DataGridProps, Column } from './index';
 
-const sampleData = [
-  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin' },
-  { id: 2, name: 'Bob Smith', email: 'bob@example.com', role: 'User' },
-  { id: 3, name: 'Charlie Lee', email: 'charlie@example.com', role: 'Editor' },
+type SampleRow = {
+  id: number;
+  name: string;
+  age: number;
+  role: string;
+};
+
+const sampleData: SampleRow[] = [
+  { id: 1, name: 'Alice', age: 30, role: 'Developer' },
+  { id: 2, name: 'Bob', age: 25, role: 'Designer' },
+  { id: 3, name: 'Charlie', age: 35, role: 'Manager' },
+  { id: 4, name: 'Diana', age: 28, role: 'Developer' },
 ];
 
-const columns = [
-  { field: 'id', headerName: 'ID', width: 70 },
-  { field: 'name', headerName: 'Name', width: 180 },
-  { field: 'email', headerName: 'Email', width: 220 },
-  { field: 'role', headerName: 'Role', width: 120 },
+const columns: Column<SampleRow>[] = [
+  {
+    key: 'id',
+    label: 'ID', // UI text should use i18n in the DataGrid implementation
+    sortable: true,
+    filterable: true,
+  },
+  {
+    key: 'name',
+    label: 'Name', // UI text should use i18n in the DataGrid implementation
+    sortable: true,
+    filterable: true,
+  },
+  {
+    key: 'age',
+    label: 'Age', // UI text should use i18n in the DataGrid implementation
+    sortable: true,
+    filterable: true,
+  },
+  {
+    key: 'role',
+    label: 'Role', // UI text should use i18n in the DataGrid implementation
+    sortable: true,
+    filterable: true,
+  },
 ];
 
-const meta: Meta<DataGridProps> = {
+const meta: Meta<DataGridProps<SampleRow>> = {
   title: 'Components/DataGrid',
   component: DataGrid,
-  args: {
-    rows: sampleData,
-    columns,
-  },
+  tags: ['autodocs'],
 };
 
 export default meta;
 
-type Story = StoryObj<DataGridProps>;
+type Story = StoryObj<DataGridProps<SampleRow>>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  args: {
+    columns,
+    data: sampleData,
+    // If your DataGrid requires additional props for sorting/filtering, add them here
+  },
+};

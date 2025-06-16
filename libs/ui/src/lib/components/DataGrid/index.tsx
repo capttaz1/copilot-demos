@@ -1,96 +1,129 @@
 import React, { useState, useMemo } from 'react';
 
-type Row = { id: number; name: string; email: string; role: string };
-
-export type DataGridProps = {
-  rows?: Row[];
-  columns: Array<{ field: string; headerName: string; width?: number }>;
+export type Column<T> = {
+  key: keyof T;
+  label: string;
+  sortable?: boolean;
+  filterable?: boolean;
+  render?: (value: unknown, row: T) => React.ReactNode;
 };
 
-type SortKey = keyof Row;
-type SortOrder = 'asc' | 'desc';
+export type DataGridProps<T> = {
+  data: T[];
+  columns: Column<T>[];
+  onRowClick?: (row: T) => void;
+};
 
-const DataGrid: React.FC<DataGridProps> = ({ rows = [], columns }) => {
-  const [filter, setFilter] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+function DataGrid<T extends Record<string, unknown>>({
+  data,
+  columns,
+}: DataGridProps<T>) {
+  const [sortKey, setSortKey] = useState<keyof T | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [filters, setFilters] = useState<Record<string, string>>({});
 
-  const handleSort = (key: SortKey) => {
+  const handleSort = (key: keyof T) => {
     if (sortKey === key) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortAsc(!sortAsc);
     } else {
       setSortKey(key);
-      setSortOrder('asc');
+      setSortAsc(true);
     }
   };
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) =>
-      row.name.toLowerCase().includes(filter.toLowerCase())
-    );
-  }, [rows, filter]);
+  const handleFilterChange = (key: keyof T, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
-  const sortedUsers = useMemo(() => {
-    return [...filteredRows].sort((a, b) => {
-      const aValue = String(a[sortKey]).toLowerCase();
-      const bValue = String(b[sortKey]).toLowerCase();
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
+  const filteredData = useMemo(() => {
+    return data.filter((row) =>
+      columns.every((col) => {
+        if (!col.filterable || !filters[col.key as string]) return true;
+        const cellValue = String(row[col.key] ?? '').toLowerCase();
+        return cellValue.includes(filters[col.key as string].toLowerCase());
+      })
+    );
+  }, [data, columns, filters]);
+
+  const sortedData = useMemo(() => {
+    if (!sortKey) return filteredData;
+    return [...filteredData].sort((a, b) => {
+      const aValue = a[sortKey];
+      const bValue = b[sortKey];
+      if (aValue === bValue) return 0;
+      if (aValue == null) return sortAsc ? -1 : 1;
+      if (bValue == null) return sortAsc ? 1 : -1;
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortAsc ? aValue - bValue : bValue - aValue;
+      }
+      return sortAsc
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
     });
-  }, [filteredRows, sortKey, sortOrder]);
+  }, [filteredData, sortKey, sortAsc]);
 
   return (
-    <div>
-      <input
-        type="text"
-        placeholder="Filter users..."
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        style={{ marginBottom: 8, padding: 4, width: '100%' }}
-      />
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
+    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+      <thead>
+        <tr>
+          {columns.map((col) => (
             <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('name')}
+              key={String(col.key)}
+              style={{
+                border: '1px solid #ccc',
+                padding: '8px',
+                cursor: col.sortable ? 'pointer' : 'default',
+              }}
+              onClick={col.sortable ? () => handleSort(col.key) : undefined}
             >
-              Name {sortKey === 'name' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+              {col.label}
+              {col.sortable && sortKey === col.key && (sortAsc ? ' ▲' : ' ▼')}
+              {col.filterable && (
+                <div>
+                  <input
+                    type="text"
+                    value={filters[col.key as string] || ''}
+                    onChange={(e) =>
+                      handleFilterChange(col.key, e.target.value)
+                    }
+                    placeholder="Filter"
+                    style={{ width: '90%' }}
+                  />
+                </div>
+              )}
             </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('email')}
-            >
-              Email{' '}
-              {sortKey === 'email' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('role')}
-            >
-              Role {sortKey === 'role' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedUsers.map((user, idx) => (
-            <tr key={idx}>
-              <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                {user.name}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                {user.email}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                {user.role}
-              </td>
-            </tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </tr>
+      </thead>
+      <tbody>
+        {sortedData.length === 0 ? (
+          <tr>
+            <td
+              colSpan={columns.length}
+              style={{ textAlign: 'center', padding: '16px' }}
+            >
+              No data
+            </td>
+          </tr>
+        ) : (
+          sortedData.map((row, i) => (
+            <tr key={i}>
+              {columns.map((col) => (
+                <td
+                  key={String(col.key)}
+                  style={{ border: '1px solid #ccc', padding: '8px' }}
+                >
+                  {col.render
+                    ? col.render(row[col.key], row)
+                    : String(row[col.key] ?? '')}
+                </td>
+              ))}
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
   );
-};
+}
 
 export default DataGrid;
