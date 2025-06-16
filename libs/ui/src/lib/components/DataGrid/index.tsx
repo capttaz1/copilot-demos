@@ -14,10 +14,7 @@ export type DataGridProps<T> = {
   onRowClick?: (row: T) => void;
 };
 
-function DataGrid<T extends Record<string, unknown>>({
-  data,
-  columns,
-}: DataGridProps<T>) {
+function DataGrid<T extends Record<string, unknown>>({ data, columns }: DataGridProps<T>) {
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -31,19 +28,28 @@ function DataGrid<T extends Record<string, unknown>>({
     }
   };
 
+  /**
+   * Handles filter changes for a specific column.
+   * Updates the filters state with the new filter value.
+   */
   const handleFilterChange = (key: keyof T, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [key]: value,
+    }));
   };
 
+  /**
+   * Filters the data based on the current filters state.
+   * Only includes rows where all filter conditions are met.
+   */
   const filteredData = useMemo(() => {
     return data.filter((row) =>
-      columns.every((col) => {
-        if (!col.filterable || !filters[col.key as string]) return true;
-        const cellValue = String(row[col.key] ?? '').toLowerCase();
-        return cellValue.includes(filters[col.key as string].toLowerCase());
-      })
+      Object.entries(filters).every(([key, value]) =>
+        row[key as keyof T]?.toString().toLowerCase().includes(value.toLowerCase())
+      )
     );
-  }, [data, columns, filters]);
+  }, [data, filters]);
 
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
@@ -56,9 +62,7 @@ function DataGrid<T extends Record<string, unknown>>({
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return sortAsc ? aValue - bValue : bValue - aValue;
       }
-      return sortAsc
-        ? String(aValue).localeCompare(String(bValue))
-        : String(bValue).localeCompare(String(aValue));
+      return sortAsc ? String(aValue).localeCompare(String(bValue)) : String(bValue).localeCompare(String(aValue));
     });
   }, [filteredData, sortKey, sortAsc]);
 
@@ -83,9 +87,7 @@ function DataGrid<T extends Record<string, unknown>>({
                   <input
                     type="text"
                     value={filters[col.key as string] || ''}
-                    onChange={(e) =>
-                      handleFilterChange(col.key, e.target.value)
-                    }
+                    onChange={(e) => handleFilterChange(col.key, e.target.value)}
                     placeholder="Filter"
                     style={{ width: '90%' }}
                   />
@@ -98,10 +100,7 @@ function DataGrid<T extends Record<string, unknown>>({
       <tbody>
         {sortedData.length === 0 ? (
           <tr>
-            <td
-              colSpan={columns.length}
-              style={{ textAlign: 'center', padding: '16px' }}
-            >
+            <td colSpan={columns.length} style={{ textAlign: 'center', padding: '16px' }}>
               No data
             </td>
           </tr>
@@ -109,13 +108,8 @@ function DataGrid<T extends Record<string, unknown>>({
           sortedData.map((row, i) => (
             <tr key={i}>
               {columns.map((col) => (
-                <td
-                  key={String(col.key)}
-                  style={{ border: '1px solid #ccc', padding: '8px' }}
-                >
-                  {col.render
-                    ? col.render(row[col.key], row)
-                    : String(row[col.key] ?? '')}
+                <td key={String(col.key)} style={{ border: '1px solid #ccc', padding: '8px' }}>
+                  {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}
                 </td>
               ))}
             </tr>
